@@ -1,3 +1,16 @@
+> ⚠️ **This is a fork of [jorhelp/Ingram](https://github.com/jorhelp/Ingram), modified for use in Termux and other lightweight Python environments.**
+>
+> ✅ This version removes dependencies on `gevent`, `numpy`, and other C-compiled libraries, making it easier to run on:
+> - Android devices (via Termux)
+> - Minimal Linux installs (e.g., Alpine, Docker scratch images)
+>
+> 🔧 Changes include:
+> - Rewritten threading logic without `gevent`
+> - Removed `numpy` (not required)
+> - Compatible with Python 3.10+ and Termux on Android
+>
+> 🧪 Goal: provide an easy-to-use camera vulnerability scanner with minimal setup and maximum portability.
+
 <div align=center>
     <img alt="Ingram" src="https://github.com/jorhelp/imgs/blob/master/Ingram/logo.png">
 </div>
