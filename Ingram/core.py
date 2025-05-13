@@ -1,10 +1,9 @@
 import os
 from collections import defaultdict
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 
-import gevent
 from loguru import logger
-from gevent.pool import Pool as geventPool
 
 from .data import Data, SnapshotPipeline
 from .pocs import get_poc_dict
@@ -103,13 +102,11 @@ class Core:
             if not self.config.disable_snapshot:
                 self.snapshot_pipeline_thread = Thread(target=self.snapshot_pipeline.process, args=[self, ], daemon=True)
                 self.snapshot_pipeline_thread.start()
-            # 扫描
-            # with common.IngramThreadPool(self.config.th_num) as pool:
-            #     pool.map(self._scan, self.data.ip_generator)
-            scan_pool = geventPool(self.config.th_num)
-            for ip in self.data.ip_generator:
-                scan_pool.start(gevent.spawn(self._scan, ip))
-            scan_pool.join()
+            # 扫描 - 使用ThreadPoolExecutor代替geventPool
+            with ThreadPoolExecutor(max_workers=self.config.th_num) as executor:
+                # 将所有IP提交到线程池
+                ip_list = list(self.data.ip_generator)
+                executor.map(self._scan, ip_list)
 
             # self.snapshot_pipeline_thread.join()
             self.status_bar_thread.join()

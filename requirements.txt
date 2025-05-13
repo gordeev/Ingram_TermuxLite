@@ -1,5 +1,4 @@
 colorama
-gevent
 IPy
 loguru
 lxml
