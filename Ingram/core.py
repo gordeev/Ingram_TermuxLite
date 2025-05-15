@@ -1,9 +1,10 @@
 import os
 from collections import defaultdict
 from threading import Thread
-from concurrent.futures import ThreadPoolExecutor
 
+import gevent
 from loguru import logger
+from gevent.pool import Pool as geventPool
 
 from .data import Data, SnapshotPipeline
 from .pocs import get_poc_dict
@@ -93,28 +94,36 @@ class Core:
     def run(self):
         logger.info(f"running at {timer.get_time_formatted()}")
         logger.info(f"config is {self.config}")
-
+    
         try:
-            # 状态栏
-            self.status_bar_thread = Thread(target=status_bar, args=[self, ], daemon=True)
-            self.status_bar_thread.start()
-            # snapshot
+            # Use gevent for everything for consistency
+            import gevent
+            
+            # Status bar
+            status_bar_greenlet = gevent.spawn(status_bar, self)
+            
+            # Snapshot pipeline if enabled
+            snapshot_pipeline_greenlet = None
             if not self.config.disable_snapshot:
-                self.snapshot_pipeline_thread = Thread(target=self.snapshot_pipeline.process, args=[self, ], daemon=True)
-                self.snapshot_pipeline_thread.start()
-            # 扫描 - 使用ThreadPoolExecutor代替geventPool
-            with ThreadPoolExecutor(max_workers=self.config.th_num) as executor:
-                # 将所有IP提交到线程池
-                ip_list = list(self.data.ip_generator)
-                executor.map(self._scan, ip_list)
-
-            # self.snapshot_pipeline_thread.join()
-            self.status_bar_thread.join()
-
+                snapshot_pipeline_greenlet = gevent.spawn(self.snapshot_pipeline.process, self)
+            
+            # Scanning
+            scan_pool = geventPool(self.config.th_num)
+            for ip in self.data.ip_generator:
+                scan_pool.spawn(self._scan, ip)
+            
+            # Wait for scanning to complete
+            scan_pool.join()
+            
+            # Signal completion to other greenlets
+            if snapshot_pipeline_greenlet:
+                snapshot_pipeline_greenlet.join(timeout=10)
+            status_bar_greenlet.join(timeout=2)
+            
             self.report()
-
+    
         except KeyboardInterrupt:
             pass
-
+    
         except Exception as e:
             logger.error(e)
