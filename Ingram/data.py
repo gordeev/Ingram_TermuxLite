@@ -186,9 +186,17 @@ class SnapshotPipeline:
             self.task_count -= 1
 
     def process(self, core):
+        import gevent
+        from gevent.queue import Empty
+        
         while not core.finish():
-            exploit_func, results = self.get()
-            self.workers.submit(self._snapshot, exploit_func, results)
-            with self.task_count_lock:
-                self.task_count += 1
-            time.sleep(.1)
+            try:
+                # Use gevent's timeout mechanism
+                exploit_func, results = self.pipeline.get(block=True, timeout=2)
+                self.workers.submit(self._snapshot, exploit_func, results)
+                with self.task_count_lock:
+                    self.task_count += 1
+            except Empty:
+                # Allow gevent to switch to other greenlets
+                gevent.sleep(0.1)
+                continue
