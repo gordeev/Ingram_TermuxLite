@@ -4,12 +4,14 @@
 # @Date   : Wed Apr 20 00:17:30 HKT 2022
 # @Desc   : Webcam vulnerability scanning tool
 
-#=================== 配置 ====================
+#=================== 需放置于最开头 ====================
 import warnings; warnings.filterwarnings("ignore")
+from gevent import monkey; monkey.patch_all()
 #======================================================
 
 import os
 import sys
+from multiprocessing import Process
 
 from loguru import logger
 
@@ -40,12 +42,17 @@ def run():
         # log 配置
         log.config_logger(os.path.join(config.out_dir, config.log), config.debug)
 
-        # 直接运行Core，不使用Process
-        core = Core(config)
-        core.run()
+        # 任务进程
+        p = Process(target=Core(config).run)
+        if common.os_check() == 'windows':
+            p.run()
+        else:
+            p.start()
+            p.join()
 
     except KeyboardInterrupt:
         logger.warning('Ctrl + c was pressed')
+        p.kill()
         sys.exit()
 
     except Exception as e:
